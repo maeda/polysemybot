@@ -1,0 +1,8 @@
+torch
+torchvision
+pandas
+jupyter
+requests
+clint
+tqdm
+matplotlib
