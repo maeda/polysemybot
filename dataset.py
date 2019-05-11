@@ -1,5 +1,3 @@
-from __future__ import unicode_literals, print_function, division
-
 from typing import Generator
 
 from pre_processing import PreProcessing
@@ -7,13 +5,20 @@ from pre_processing import PreProcessing
 SOS_token = 0
 EOS_token = 1
 
+SOS = "SOS"
+EOS = "EOS"
+UNK = "UNK"
+
 
 class Vocabulary:
     def __init__(self):
         self._word2index = {}
         self.word2count = {}
-        self.index2word = {0: "SOS", 1: "EOS", 3: "UNK"}
-        self.n_words = 3  # Count SOS and EOS
+        self.index2word = {}
+        self.n_words = 0
+        self.add_word(SOS)
+        self.add_word(EOS)
+        self.add_word(UNK)
 
     def add_sentence_tuple(self, sentence_tuple: tuple):
         for sentence in sentence_tuple:
@@ -33,7 +38,7 @@ class Vocabulary:
             self.word2count[word] += 1
 
     def word2index(self, word):
-        return 3 if word not in self._word2index else self._word2index[word]
+        return self._word2index[UNK] if word not in self._word2index else self._word2index[word]
 
 
 class Dataset:
