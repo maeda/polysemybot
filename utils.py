@@ -35,4 +35,4 @@ class TensorHelper:
         return torch.tensor(indexes, dtype=torch.long, device=self._device).view(-1, 1)
 
     def _indexes_from_sentence(self, lang, sentence):
-        return [lang.word2index[word] for word in sentence.split(' ')]
+        return [lang.word2index(word) for word in sentence.split(' ')]

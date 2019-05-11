@@ -10,10 +10,10 @@ EOS_token = 1
 
 class Vocabulary:
     def __init__(self):
-        self.word2index = {}
+        self._word2index = {}
         self.word2count = {}
-        self.index2word = {0: "SOS", 1: "EOS"}
-        self.n_words = 2  # Count SOS and EOS
+        self.index2word = {0: "SOS", 1: "EOS", 3: "UNK"}
+        self.n_words = 3  # Count SOS and EOS
 
     def add_sentence_tuple(self, sentence_tuple: tuple):
         for sentence in sentence_tuple:
@@ -24,13 +24,16 @@ class Vocabulary:
             self.add_word(word)
 
     def add_word(self, word):
-        if word not in self.word2index:
-            self.word2index[word] = self.n_words
+        if word not in self._word2index:
+            self._word2index[word] = self.n_words
             self.word2count[word] = 1
             self.index2word[self.n_words] = word
             self.n_words += 1
         else:
             self.word2count[word] += 1
+
+    def word2index(self, word):
+        return 3 if word not in self._word2index else self._word2index[word]
 
 
 class Dataset:

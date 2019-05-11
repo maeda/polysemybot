@@ -33,3 +33,14 @@ class ModelTest(unittest.TestCase):
         model.evaluate_randomly(dataset=dataset)
 
         self.assertEquals(dataset.vocab_size(), 24)
+
+    def test_predict(self):
+        dataset = process(PreProcessing(sentences))
+
+        model = Model()
+        model.train(dataset=dataset)
+
+        output_words, attentions = model.evaluate(dataset.vocabulary, "Oi!")
+
+        print(' '.join(output_words))
+

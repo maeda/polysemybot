@@ -10,4 +10,6 @@ if __name__ == '__main__':
     dataset = process(PreProcessing(open(sys.argv[1], 'r')))
 
     model.train(dataset)
-    model.evaluate_randomly(dataset, 10)
+    while True:
+        decoded_words, decoder_attentions = model.evaluate(dataset.vocabulary, str(input("> ")))
+        print(' '.join(decoded_words))
