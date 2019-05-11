@@ -1,11 +1,13 @@
 import sys
 
 from model import Model
-from preprocessing import PreProcessing, DatasetReader
-
+from dataset import process
+from pre_processing import PreProcessing
 
 if __name__ == '__main__':
     model = Model()
 
-    model.train(PreProcessing(DatasetReader(open(sys.argv[1], 'r'))))
-    model.evaluate_randomly(10)
+    dataset = process(PreProcessing(open(sys.argv[1], 'r')))
+
+    model.train(dataset)
+    model.evaluate_randomly(dataset, 10)

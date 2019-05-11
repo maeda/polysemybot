@@ -1,6 +1,5 @@
 from __future__ import unicode_literals, print_function, division
 
-import math
 import random
 import time
 
@@ -9,23 +8,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch import optim
 
-from preprocessing import PreProcessing, EOS_token, SOS_token
+from dataset import EOS_token, SOS_token, Dataset
+from utils import time_since, TensorHelper
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-
-def time_since(since, percent):
-    now = time.time()
-    s = now - since
-    es = s / percent
-    rs = es - s
-    return '%s (- %s)' % (as_minutes(s), as_minutes(rs))
-
-
-def as_minutes(s):
-    m = math.floor(s / 60)
-    s -= m * 60
-    return '%dm %ds' % (m, s)
 
 
 class EncoderRNN(nn.Module):
@@ -104,24 +90,10 @@ class AttnDecoderRNN(nn.Module):
         return torch.zeros(1, 1, self.hidden_size, device=device)
 
 
-class TensorHelper:
-    def tensors_from_pair(self, pair, input_lang, output_lang):
-        input_tensor = self.tensor_from_sentence(input_lang, pair[0])
-        target_tensor = self.tensor_from_sentence(output_lang, pair[1])
-        return input_tensor, target_tensor
-
-    def tensor_from_sentence(self, lang, sentence):
-        indexes = self._indexes_from_sentence(lang, sentence)
-        indexes.append(EOS_token)
-        return torch.tensor(indexes, dtype=torch.long, device=device).view(-1, 1)
-
-    def _indexes_from_sentence(self, lang, sentence):
-        return [lang.word2index[word] for word in sentence.split(' ')]
-
-
 class Model:
 
-    def __init__(self, hidden_size=256, teacher_forcing_ratio=0.5, max_lenght=20, tensor_helper=TensorHelper()):
+    def __init__(self, hidden_size=256, teacher_forcing_ratio=0.5, max_lenght=20,
+                 tensor_helper=TensorHelper(device, EOS_token)):
         self.hidden_size = hidden_size
         self.teacher_forcing_ratio=teacher_forcing_ratio
         self.tensor_helper = tensor_helper
@@ -129,17 +101,12 @@ class Model:
         self.max_length = max_lenght
         self.encoder = None
         self.decoder = None
-        self.pairs = None
-        self.input_speaker = None
-        self.output_speaker = None
 
-    def train(self, data: PreProcessing,
+    def train(self, dataset: Dataset,
               n_iter=50, print_every=10, plot_every=10, learning_rate=0.01, dropout_p=0.1):
 
-        self.input_speaker, self.output_speaker, self.pairs = data.prepare_data()
-
-        self.encoder = EncoderRNN(self.input_speaker.n_words, self.hidden_size).to(device)
-        self.decoder = AttnDecoderRNN(self.hidden_size, self.output_speaker.n_words, dropout_p=dropout_p).to(device)
+        self.encoder = EncoderRNN(dataset.vocab_size(), self.hidden_size).to(device)
+        self.decoder = AttnDecoderRNN(self.hidden_size, dataset.vocab_size(), dropout_p=dropout_p).to(device)
 
         start = time.time()
         self.plot_losses = []
@@ -148,8 +115,8 @@ class Model:
 
         encoder_optimizer = optim.SGD(self.encoder.parameters(), lr=learning_rate)
         decoder_optimizer = optim.SGD(self.decoder.parameters(), lr=learning_rate)
-        training_pairs = [self.tensor_helper.tensors_from_pair(random.choice(self.pairs), self.input_speaker,
-                                                               self.output_speaker) for i in range(n_iter)]
+        training_pairs = [self.tensor_helper.tensors_from_pair(random.choice(dataset.pairs), dataset.vocabulary,
+                                                               dataset.vocabulary) for i in range(n_iter)]
         criterion = nn.NLLLoss()
 
         for iteration in range(1, n_iter + 1):
@@ -225,19 +192,19 @@ class Model:
 
         return loss.item() / target_length
 
-    def evaluate_randomly(self, n=10):
+    def evaluate_randomly(self, dataset: Dataset, n=10):
         for i in range(n):
-            pair = random.choice(self.pairs)
+            pair = random.choice(dataset.pairs)
             print('>', pair[0])
             print('=', pair[1])
-            output_words, attentions = self.evaluate(pair[0])
+            output_words, attentions = self.evaluate(dataset.vocabulary, pair[0])
             output_sentence = ' '.join(output_words)
             print('<', output_sentence)
             print('')
 
-    def evaluate(self, sentence):
+    def evaluate(self, vocabulary, sentence):
         with torch.no_grad():
-            input_tensor = self.tensor_helper.tensor_from_sentence(self.input_speaker, sentence)
+            input_tensor = self.tensor_helper.tensor_from_sentence(vocabulary, sentence)
             input_length = input_tensor.size()[0]
             encoder_hidden = self.encoder.init_hidden()
 
@@ -263,7 +230,7 @@ class Model:
                     decoded_words.append('<EOS>')
                     break
                 else:
-                    decoded_words.append(self.output_speaker.index2word[topi.item()])
+                    decoded_words.append(vocabulary.index2word[topi.item()])
 
                 decoder_input = topi.squeeze().detach()
 
