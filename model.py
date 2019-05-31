@@ -116,8 +116,6 @@ class Model:
         input_length = input_tensor.size(0)
         target_length = target_tensor.size(0)
 
-        encoder_outputs = torch.zeros(self.max_length, encoder.hidden_size, device=device)
-
         loss = 0
 
         for ei in range(input_length):
