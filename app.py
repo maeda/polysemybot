@@ -11,5 +11,5 @@ if __name__ == '__main__':
 
     model.train(dataset)
     while True:
-        decoded_words, decoder_attentions = model.evaluate(dataset.vocabulary, str(input("> ")))
+        decoded_words = model.evaluate(dataset.vocabulary, str(input("> ")))
         print(' '.join(decoded_words))

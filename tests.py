@@ -42,5 +42,5 @@ class ModelTest(unittest.TestCase):
 
         output_words = model.evaluate(dataset.vocabulary, "Oi!")
 
-        print(' '.join(output_words))
+        self.assertTrue(len(' '.join(output_words)) > 0)
 
