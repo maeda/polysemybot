@@ -1,4 +1,5 @@
 from typing import Generator
+from nltk import word_tokenize
 
 from pre_processing import PreProcessing
 
@@ -25,7 +26,7 @@ class Vocabulary:
             self.add_sentence(sentence)
 
     def add_sentence(self, sentence):
-        for word in sentence.split(' '):
+        for word in word_tokenize(sentence):
             self.add_word(word)
 
     def add_word(self, word):

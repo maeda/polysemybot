@@ -19,7 +19,7 @@ class PreProcessingTest(unittest.TestCase):
 
         dataset = process(PreProcessing(sentences))
 
-        self.assertEqual(dataset.vocab_size(), 24)
+        self.assertEqual(dataset.vocab_size(), 25)
 
 
 class ModelTest(unittest.TestCase):
@@ -32,7 +32,7 @@ class ModelTest(unittest.TestCase):
         model.train(dataset=dataset)
         model.evaluate_randomly(dataset=dataset)
 
-        self.assertEquals(dataset.vocab_size(), 24)
+        self.assertEquals(dataset.vocab_size(), 25)
 
     def test_predict(self):
         dataset = process(PreProcessing(sentences))
