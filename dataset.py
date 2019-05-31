@@ -11,6 +11,10 @@ EOS = "EOS"
 UNK = "UNK"
 
 
+def control_words():
+    return [SOS, EOS, UNK]
+
+
 class Vocabulary:
     def __init__(self):
         self._word2index = {}

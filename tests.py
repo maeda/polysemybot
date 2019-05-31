@@ -32,7 +32,7 @@ class ModelTest(unittest.TestCase):
         model.train(dataset=dataset)
         model.evaluate_randomly(dataset=dataset)
 
-        self.assertEquals(dataset.vocab_size(), 25)
+        self.assertEqual(dataset.vocab_size(), 25)
 
     def test_predict(self):
         dataset = process(PreProcessing(sentences))
@@ -40,7 +40,7 @@ class ModelTest(unittest.TestCase):
         model = Model()
         model.train(dataset=dataset)
 
-        output_words, attentions = model.evaluate(dataset.vocabulary, "Oi!")
+        output_words = model.evaluate(dataset.vocabulary, "Oi!")
 
         print(' '.join(output_words))
 
