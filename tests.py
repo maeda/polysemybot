@@ -34,7 +34,7 @@ class ModelTest(unittest.TestCase):
 
         dataset = ds.process(PreProcessing(sentences))
 
-        model = Model()
+        model = Model(dataset.vocab_size(), dataset.vocab_size())
         model.train(dataset=dataset)
         model.evaluate_randomly(dataset=dataset)
 
@@ -43,7 +43,7 @@ class ModelTest(unittest.TestCase):
     def test_predict(self):
         dataset = ds.process(PreProcessing(sentences))
 
-        model = Model()
+        model = Model(dataset.vocab_size(), dataset.vocab_size())
         model.train(dataset=dataset)
 
         output_words = model.evaluate(dataset.vocabulary, "Oi!")
@@ -53,7 +53,7 @@ class ModelTest(unittest.TestCase):
     def test_save(self):
         dataset = ds.process(PreProcessing(sentences, 'integration_test'))
 
-        model = Model()
+        model = Model(dataset.vocab_size(), dataset.vocab_size())
         model.train(dataset=dataset)
 
 
@@ -65,3 +65,7 @@ class DatasetTest(unittest.TestCase):
         dataset = ds.load("integration_test")
 
         self.assertEqual('{"idx": "integration_test", "vocab": 25, "pairs": 3}', dataset.__str__())
+
+    def test_should_generate_training_pairs(self):
+        dataset = ds.process(PreProcessing(sentences, 'integration_test'))
+        print(dataset.training_pairs(2))

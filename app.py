@@ -18,18 +18,19 @@ def parse():
 if __name__ == '__main__':
     args = parse()
 
-    model = Model()
-
     if args.train:
         file_train = args.train.split('/')[-1].split('.')[0]
         try:
             dataset = load(file_train)
         except Exception as e:
             dataset = process(PreProcessing(open(args.train, 'r'), file_train))
+
+        model = Model(dataset.vocab_size(), dataset.vocab_size())
         model.train(dataset)
 
     if args.test:
         dataset = load(args.corpus.split('/')[-1].split('.')[0])
+        model = Model(dataset.vocab_size(), dataset.vocab_size())
         while True:
             decoded_words = model.evaluate(dataset.vocabulary, str(input("> ")))
             print(' '.join(decoded_words))

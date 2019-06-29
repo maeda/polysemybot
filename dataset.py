@@ -1,5 +1,6 @@
 import json
 import os
+import random
 from typing import Generator
 
 import settings
@@ -7,6 +8,7 @@ import torch
 from nltk import word_tokenize
 
 from pre_processing import PreProcessing
+from utils import TensorHelper
 
 SOS_token = 0
 EOS_token = 1
@@ -52,13 +54,22 @@ class Vocabulary:
 
 
 class Dataset:
-    def __init__(self, vocabulary: Vocabulary, pairs: list, idx: str):
+    def __init__(self,
+                 vocabulary: Vocabulary,
+                 pairs: list,
+                 idx: str,
+                 tensor_helper: TensorHelper = TensorHelper(settings.device, EOS_token)):
         self.vocabulary = vocabulary
         self.pairs = pairs
         self.idx = idx
+        self.tensor_helper = tensor_helper
 
     def vocab_size(self):
         return self.vocabulary.n_words
+
+    def training_pairs(self, sample_size):
+        return [self.tensor_helper.tensors_from_pair(random.choice(self.pairs), self.vocabulary, self.vocabulary)
+                for _ in range(sample_size)]
 
     def __str__(self):
         return json.dumps({

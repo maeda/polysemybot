@@ -13,8 +13,6 @@ from dataset import EOS_token, SOS_token, Dataset, control_words
 import settings
 from utils import time_since, TensorHelper
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
 
 class EncoderRNN(nn.Module):
     def __init__(self, input_size, hidden_size, n_layers=1):
@@ -32,7 +30,7 @@ class EncoderRNN(nn.Module):
         return output, hidden
 
     def init_hidden(self):
-        return torch.zeros(1, 1, self.hidden_size, device=device)
+        return torch.zeros(1, 1, self.hidden_size, device=settings.device)
 
 
 class DecoderRNN(nn.Module):
@@ -57,36 +55,60 @@ class DecoderRNN(nn.Module):
         return output, hidden
 
     def init_hidden(self):
-        return torch.zeros(1, 1, self.hidden_size, device=device)
+        return torch.zeros(1, 1, self.hidden_size, device=settings.device)
 
 
 class Model:
 
-    def __init__(self, hidden_size=300, teacher_forcing_ratio=0.5, max_lenght=20,
-                 tensor_helper=TensorHelper(device, EOS_token)):
+    def __init__(self,
+                 input_size: int,
+                 output_size: int,
+                 hidden_size: int = 300,
+                 teacher_forcing_ratio: float = 0.5,
+                 max_lenght: int = 20,
+                 dropout_p: float = 0.01,
+                 learning_rate: float = 0.01,
+                 tensor_helper: TensorHelper = TensorHelper(settings.device, EOS_token)):
+        self.input_size = input_size
+        self.output_size = output_size
         self.hidden_size = hidden_size
         self.teacher_forcing_ratio=teacher_forcing_ratio
+        self.max_length = max_lenght
+        self.dropout_p = dropout_p
+        self.learning_rate = learning_rate
+
         self.tensor_helper = tensor_helper
         self.plot_losses = []
-        self.max_length = max_lenght
-        self.encoder = None
-        self.decoder = None
+        self.encoder, self.decoder = self.build(input_size, output_size, dropout_p)
+        self.encoder_optimizer, self.decoder_optimizer = self._optimizers(learning_rate)
 
-    def train(self, dataset: Dataset,
-              n_iter=50, print_every=10, save_every=10, plot_every=10, learning_rate=0.01, dropout_p=0.1):
+    def build(self, input_size: int, output_size: int, dropout_p: float = 0.1):
+        encoder = EncoderRNN(input_size, self.hidden_size).to(settings.device)
+        decoder = DecoderRNN(self.hidden_size, output_size, dropout_p=dropout_p).to(settings.device)
 
-        self.encoder = EncoderRNN(dataset.vocab_size(), self.hidden_size).to(device)
-        self.decoder = DecoderRNN(self.hidden_size, dataset.vocab_size(), dropout_p=dropout_p).to(device)
+        return encoder, decoder
+
+    def _optimizers(self, learning_rate):
+        encoder_optimizer = optim.SGD(self.encoder.parameters(), lr=learning_rate)
+        decoder_optimizer = optim.SGD(self.decoder.parameters(), lr=learning_rate)
+
+        encoder_optimizer.zero_grad()
+        decoder_optimizer.zero_grad()
+
+        return encoder_optimizer, decoder_optimizer
+
+    def _optimizers_zero_grad(self):
+        self.encoder_optimizer.zero_grad()
+        self.decoder_optimizer.zero_grad()
+
+    def train(self, dataset: Dataset, n_iter=50, print_every=10, save_every=10, plot_every=10):
 
         start = time.time()
         self.plot_losses = []
         print_loss_total = 0  # Reset every print_every
         plot_loss_total = 0  # Reset every plot_every
 
-        encoder_optimizer = optim.SGD(self.encoder.parameters(), lr=learning_rate)
-        decoder_optimizer = optim.SGD(self.decoder.parameters(), lr=learning_rate)
-        training_pairs = [self.tensor_helper.tensors_from_pair(random.choice(dataset.pairs), dataset.vocabulary,
-                                                               dataset.vocabulary) for i in range(n_iter)]
+        training_pairs = dataset.training_pairs(n_iter)
         criterion = nn.NLLLoss()
 
         for iteration in range(1, n_iter + 1):
@@ -94,8 +116,8 @@ class Model:
             input_tensor = training_pair[0]
             target_tensor = training_pair[1]
 
-            loss = self._train(input_tensor, target_tensor, self.encoder, self.decoder, encoder_optimizer,
-                               decoder_optimizer, criterion)
+            loss = self._train(input_tensor, target_tensor, self.encoder, self.decoder, self.encoder_optimizer,
+                               self.decoder_optimizer, criterion)
 
             print_loss_total += loss
             plot_loss_total += loss
@@ -123,8 +145,8 @@ class Model:
                     'iteration': iteration,
                     'enc': self.encoder.state_dict(),
                     'dec': self.decoder.state_dict(),
-                    'enc_opt': encoder_optimizer.state_dict(),
-                    'dec_opt': decoder_optimizer.state_dict(),
+                    'enc_opt': self.encoder_optimizer.state_dict(),
+                    'dec_opt': self.decoder_optimizer.state_dict(),
                     'loss': loss
                 }, os.path.join(directory, '{}_{}.torch'.format(iteration, 'backup_bidir_model')))
 
@@ -132,8 +154,7 @@ class Model:
                criterion: nn.NLLLoss):
         encoder_hidden = encoder.init_hidden()
 
-        encoder_optimizer.zero_grad()
-        decoder_optimizer.zero_grad()
+        self._optimizers_zero_grad()
 
         input_length = input_tensor.size(0)
         target_length = target_tensor.size(0)
@@ -144,7 +165,7 @@ class Model:
             encoder_output, encoder_hidden = encoder(
                 input_tensor[ei], encoder_hidden)
 
-        decoder_input = torch.tensor([[SOS_token]], device=device)
+        decoder_input = torch.tensor([[SOS_token]], device=settings.device)
 
         decoder_hidden = encoder_hidden
 
@@ -193,13 +214,13 @@ class Model:
             input_length = input_tensor.size()[0]
             encoder_hidden = self.encoder.init_hidden()
 
-            encoder_outputs = torch.zeros(self.max_length, self.encoder.hidden_size, device=device)
+            encoder_outputs = torch.zeros(self.max_length, self.encoder.hidden_size, device=settings.device)
 
             for ei in range(input_length):
                 encoder_output, encoder_hidden = self.encoder(input_tensor[ei], encoder_hidden)
                 encoder_outputs[ei] += encoder_output[0, 0]
 
-            decoder_input = torch.tensor([[SOS_token]], device=device)  # SOS
+            decoder_input = torch.tensor([[SOS_token]], device=settings.device)  # SOS
 
             decoder_hidden = encoder_hidden
 
