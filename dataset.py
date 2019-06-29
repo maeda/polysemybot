@@ -1,4 +1,9 @@
+import json
+import os
 from typing import Generator
+
+import settings
+import torch
 from nltk import word_tokenize
 
 from pre_processing import PreProcessing
@@ -47,12 +52,20 @@ class Vocabulary:
 
 
 class Dataset:
-    def __init__(self, vocabulary, pairs):
+    def __init__(self, vocabulary: Vocabulary, pairs: list, idx: str):
         self.vocabulary = vocabulary
         self.pairs = pairs
+        self.idx = idx
 
     def vocab_size(self):
         return self.vocabulary.n_words
+
+    def __str__(self):
+        return json.dumps({
+            'idx': self.idx,
+            'vocab': self.vocabulary.n_words,
+            'pairs': len(self.pairs)
+        })
 
 
 def process(reader: PreProcessing):
@@ -76,9 +89,21 @@ def process(reader: PreProcessing):
     print("Counted words:")
     print(vocabulary.n_words)
 
-    return Dataset(vocabulary, pairs)
+    return Dataset(vocabulary, pairs, reader.idx)
 
 
+def save(dataset: Dataset):
+    directory = os.path.join(settings.TRAINING_DATA_DIR, dataset.idx)
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+    torch.save(dataset.vocabulary, os.path.join(directory, '{!s}.torch'.format('vocab')))
+    torch.save(dataset.pairs, os.path.join(directory, '{!s}.torch'.format('pairs')))
 
 
+def load(dataset_id: str):
+    directory = os.path.join(settings.TRAINING_DATA_DIR, dataset_id)
+    vocab = torch.load(os.path.join(directory, '{!s}.torch'.format('vocab')))
+    pairs = torch.load(os.path.join(directory, '{!s}.torch'.format('pairs')))
+
+    return Dataset(vocab, pairs, dataset_id)
 

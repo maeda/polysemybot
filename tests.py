@@ -1,7 +1,13 @@
+import os
 import unittest
+import tempfile
+
+import torch
+
+os.environ['BASE_DIR'] = tempfile.gettempdir()
 
 from model import Model
-from dataset import process
+import dataset as ds
 from pre_processing import PreProcessing
 
 sentences = [
@@ -17,7 +23,7 @@ class PreProcessingTest(unittest.TestCase):
 
     def test_pre_processing(self):
 
-        dataset = process(PreProcessing(sentences))
+        dataset = ds.process(PreProcessing(sentences))
 
         self.assertEqual(dataset.vocab_size(), 25)
 
@@ -26,7 +32,7 @@ class ModelTest(unittest.TestCase):
 
     def test_train_model(self):
 
-        dataset = process(PreProcessing(sentences))
+        dataset = ds.process(PreProcessing(sentences))
 
         model = Model()
         model.train(dataset=dataset)
@@ -35,7 +41,7 @@ class ModelTest(unittest.TestCase):
         self.assertEqual(dataset.vocab_size(), 25)
 
     def test_predict(self):
-        dataset = process(PreProcessing(sentences))
+        dataset = ds.process(PreProcessing(sentences))
 
         model = Model()
         model.train(dataset=dataset)
@@ -44,3 +50,18 @@ class ModelTest(unittest.TestCase):
 
         self.assertTrue(len(' '.join(output_words)) > 0)
 
+    def test_save(self):
+        dataset = ds.process(PreProcessing(sentences, 'integration_test'))
+
+        model = Model()
+        model.train(dataset=dataset)
+
+
+class DatasetTest(unittest.TestCase):
+
+    def test_should_save_load_dataset(self):
+        ds.save(ds.process(PreProcessing(sentences, 'integration_test')))
+
+        dataset = ds.load("integration_test")
+
+        self.assertEqual('{"idx": "integration_test", "vocab": 25, "pairs": 3}', dataset.__str__())

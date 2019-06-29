@@ -7,3 +7,5 @@ clint
 tqdm
 matplotlib
 nltk
+gensim
+python-dotenv

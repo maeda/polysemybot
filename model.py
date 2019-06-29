@@ -1,5 +1,6 @@
 from __future__ import unicode_literals, print_function, division
 
+import os
 import random
 import time
 
@@ -9,18 +10,20 @@ import torch.nn.functional as F
 from torch import optim
 
 from dataset import EOS_token, SOS_token, Dataset, control_words
+import settings
 from utils import time_since, TensorHelper
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 class EncoderRNN(nn.Module):
-    def __init__(self, input_size, hidden_size):
+    def __init__(self, input_size, hidden_size, n_layers=1):
         super(EncoderRNN, self).__init__()
         self.hidden_size = hidden_size
+        self.n_layers = n_layers
 
         self.embedding = nn.Embedding(input_size, hidden_size)
-        self.gru = nn.GRU(hidden_size, hidden_size)
+        self.gru = nn.GRU(hidden_size, hidden_size, n_layers)
 
     def forward(self, input, hidden):
         embedded = self.embedding(input).view(1, 1, -1)
@@ -33,12 +36,13 @@ class EncoderRNN(nn.Module):
 
 
 class DecoderRNN(nn.Module):
-    def __init__(self, hidden_size, output_size, dropout_p=0.1):
+    def __init__(self, hidden_size, output_size, dropout_p=0.1, n_layers=1):
         super(DecoderRNN, self).__init__()
         self.hidden_size = hidden_size
+        self.n_layers = n_layers
         self.dropout_p = dropout_p
 
-        self.embedding = nn.Embedding(output_size, hidden_size)
+        self.embedding = nn.Embedding(output_size, hidden_size, n_layers)
         self.dropout = nn.Dropout(self.dropout_p)
         self.gru = nn.GRU(hidden_size, hidden_size)
         self.out = nn.Linear(hidden_size, output_size)
@@ -58,7 +62,7 @@ class DecoderRNN(nn.Module):
 
 class Model:
 
-    def __init__(self, hidden_size=256, teacher_forcing_ratio=0.5, max_lenght=20,
+    def __init__(self, hidden_size=300, teacher_forcing_ratio=0.5, max_lenght=20,
                  tensor_helper=TensorHelper(device, EOS_token)):
         self.hidden_size = hidden_size
         self.teacher_forcing_ratio=teacher_forcing_ratio
@@ -69,7 +73,7 @@ class Model:
         self.decoder = None
 
     def train(self, dataset: Dataset,
-              n_iter=50, print_every=10, plot_every=10, learning_rate=0.01, dropout_p=0.1):
+              n_iter=50, print_every=10, save_every=10, plot_every=10, learning_rate=0.01, dropout_p=0.1):
 
         self.encoder = EncoderRNN(dataset.vocab_size(), self.hidden_size).to(device)
         self.decoder = DecoderRNN(self.hidden_size, dataset.vocab_size(), dropout_p=dropout_p).to(device)
@@ -105,6 +109,24 @@ class Model:
                 plot_loss_avg = plot_loss_total / plot_every
                 self.plot_losses.append(plot_loss_avg)
                 plot_loss_total = 0
+
+            if iteration % save_every == 0:
+                directory = os.path.join(settings.SAVE_DATA_DIR, dataset.idx,
+                                         '{}-{}_{}'.format(
+                                             str(self.encoder.n_layers),
+                                             str(self.decoder.n_layers),
+                                             str(iteration)))
+                if not os.path.exists(directory):
+                    os.makedirs(directory)
+
+                torch.save({
+                    'iteration': iteration,
+                    'enc': self.encoder.state_dict(),
+                    'dec': self.decoder.state_dict(),
+                    'enc_opt': encoder_optimizer.state_dict(),
+                    'dec_opt': decoder_optimizer.state_dict(),
+                    'loss': loss
+                }, os.path.join(directory, '{}_{}.torch'.format(iteration, 'backup_bidir_model')))
 
     def _train(self, input_tensor, target_tensor, encoder, decoder, encoder_optimizer, decoder_optimizer,
                criterion: nn.NLLLoss):
