@@ -1,11 +1,9 @@
 torch
 torchvision
 pandas
-jupyter
 requests
 clint
 tqdm
-matplotlib
 nltk
 gensim
 python-dotenv
