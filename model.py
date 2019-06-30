@@ -185,7 +185,7 @@ class Model:
             encoder_output, encoder_hidden = encoder(
                 input_tensor[ei], encoder_hidden)
 
-        decoder_input = torch.tensor([[SOS_token]], device=settings.device)
+        decoder_input = torch.tensor([[SOS_token]], device=settings.device).to(settings.device)
 
         decoder_hidden = encoder_hidden
 

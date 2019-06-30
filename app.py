@@ -11,10 +11,10 @@ def parse():
     parser.add_argument('-te', '--test', help='Test the saved model')
     parser.add_argument('-c', '--corpus', help='Test the saved model with vocabulary of the corpus')
     parser.add_argument('-it', '--iteration', type=int, default=50000, help='Train the model with it iterations')
-    parser.add_argument('-hi', '--hidden', type=int, default=512, help='Hidden size in encoder and decoder')
+    parser.add_argument('-hi', '--hidden', type=int, default=256, help='Hidden size in encoder and decoder')
     parser.add_argument('-s', '--save', type=int, default=1000, help='Save every s iterations')
     parser.add_argument('-d', '--dropout', type=float, default=0.0, help='Dropout probability for rnn and dropout layers')
-    parser.add_argument('-lr', '--learning_rate', type=float, default=0.001, help='Learning rate')
+    parser.add_argument('-lr', '--learning_rate', type=float, default=0.01, help='Learning rate')
     parser.add_argument('-la', '--layer', type=int, default=1, help='Number of layers in encoder and decoder')
     # parser.add_argument('-b', '--batch_size', type=int, default=8, help='Batch size')
 
