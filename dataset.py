@@ -108,7 +108,7 @@ class DatasetStorage:
         self.dataset_dir = dataset_dir
 
     def _get_dataset_dir(self, dataset_id: str):
-        return os.path.join(self.dataset_dir, dataset_id)
+        return os.path.join(settings.BASE_DIR, dataset_id, self.dataset_dir)
 
     def exist(self, dataset_id: str):
         return os.path.exists(self._get_dataset_dir(dataset_id))
@@ -143,3 +143,7 @@ def process(reader: PreProcessing, storage: DatasetStorage = DatasetStorage()):
         storage.save(dataset)
 
     return storage.load(reader.idx)
+
+
+def load(dataset_id: str, storage: DatasetStorage = DatasetStorage()) -> Dataset:
+    return storage.load(dataset_id)

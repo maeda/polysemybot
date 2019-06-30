@@ -133,7 +133,7 @@ class Model:
                 plot_loss_total = 0
 
             if iteration % save_every == 0:
-                directory = os.path.join(settings.SAVE_DATA_DIR, dataset.idx,
+                directory = os.path.join(settings.BASE_DIR, dataset.idx, settings.SAVE_DATA_DIR,
                                          '{}-{}_{}'.format(
                                              str(self.encoder.n_layers),
                                              str(self.decoder.n_layers),
