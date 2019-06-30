@@ -121,10 +121,12 @@ class DatasetStorage:
 
         return dataset_dir
 
-    def save(self, dataset: Dataset):
+    def save(self, dataset: Dataset) -> Dataset:
         dataset_dir = self.create_dataset_dir(dataset.idx)
         torch.save(dataset.vocabulary, os.path.join(dataset_dir, '{!s}.torch'.format('vocab')))
         torch.save(dataset.pairs, os.path.join(dataset_dir, '{!s}.torch'.format('pairs')))
+
+        return dataset
 
     def load(self, dataset_id: str) -> Dataset:
         directory = self._get_dataset_dir(dataset_id)
@@ -134,12 +136,10 @@ class DatasetStorage:
         return Dataset(vocab, pairs, dataset_id)
 
 
-def process(reader: PreProcessing):
+def process(reader: PreProcessing, storage: DatasetStorage = DatasetStorage()):
 
-    dataset = Dataset.build(reader)
+    if not storage.exist(reader.idx):
+        dataset = Dataset.build(reader)
+        storage.save(dataset)
 
-    return dataset
-
-
-
-
+    return storage.load(reader.idx)
