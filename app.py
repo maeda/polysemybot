@@ -26,6 +26,7 @@ if __name__ == '__main__':
         dataset = process(PreProcessing(open(args.train, 'r'), file_train))
 
         model = Model(dataset.vocab_size(), dataset.vocab_size())
+        model.summary()
         model.train(dataset, n_iter=args.iteration, save_every=args.save)
 
     if args.test:

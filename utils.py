@@ -29,10 +29,10 @@ class TensorHelper:
         target_tensor = self.tensor_from_sentence(output_lang, pair[1])
         return input_tensor, target_tensor
 
-    def tensor_from_sentence(self, lang, sentence):
-        indexes = self._indexes_from_sentence(lang, sentence)
+    def tensor_from_sentence(self, vocabulary, sentence):
+        indexes = self._indexes_from_sentence(vocabulary, sentence)
         indexes.append(self._eos_token)
         return torch.tensor(indexes, dtype=torch.long, device=self._device).view(-1, 1)
 
-    def _indexes_from_sentence(self, lang, sentence):
-        return [lang.word2index(word) for word in sentence.split(' ')]
+    def _indexes_from_sentence(self, vocabulary, sentence):
+        return [vocabulary.word2index(word) for word in sentence.split(' ')]

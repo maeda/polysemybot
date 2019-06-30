@@ -101,6 +101,10 @@ class Model:
         self.encoder_optimizer.zero_grad()
         self.decoder_optimizer.zero_grad()
 
+    def summary(self):
+        print(self.encoder)
+        print(self.decoder)
+
     def train(self, dataset: Dataset, n_iter=50, print_every=10, save_every=10, plot_every=10):
 
         start = time.time()
