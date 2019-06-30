@@ -2,8 +2,6 @@ import os
 import unittest
 import tempfile
 
-import torch
-
 os.environ['BASE_DIR'] = tempfile.gettempdir()
 
 from model import Model
@@ -60,12 +58,16 @@ class ModelTest(unittest.TestCase):
 class DatasetTest(unittest.TestCase):
 
     def test_should_save_load_dataset(self):
-        ds.save(ds.process(PreProcessing(sentences, 'integration_test')))
+        storage = ds.DatasetStorage()
+        storage.save(ds.process(PreProcessing(sentences, 'integration_test')))
 
-        dataset = ds.load("integration_test")
+        dataset = storage.load("integration_test")
 
         self.assertEqual('{"idx": "integration_test", "vocab": 25, "pairs": 3}', dataset.__str__())
 
     def test_should_generate_training_pairs(self):
         dataset = ds.process(PreProcessing(sentences, 'integration_test'))
         print(dataset.training_pairs(2))
+
+    def test_should_create_dataset_dir(self):
+        pass

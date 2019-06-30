@@ -34,7 +34,7 @@ class EncoderRNN(nn.Module):
 
 
 class DecoderRNN(nn.Module):
-    def __init__(self, hidden_size, output_size, dropout_p=0.1, n_layers=1):
+    def __init__(self, hidden_size, output_size, dropout_p, n_layers=1):
         super(DecoderRNN, self).__init__()
         self.hidden_size = hidden_size
         self.n_layers = n_layers
@@ -64,15 +64,15 @@ class Model:
                  input_size: int,
                  output_size: int,
                  hidden_size: int = 300,
-                 teacher_forcing_ratio: float = 0.5,
+                 teacher_forcing_ratio: float = 1,
                  max_lenght: int = 20,
-                 dropout_p: float = 0.01,
+                 dropout_p: float = 0.00,
                  learning_rate: float = 0.01,
                  tensor_helper: TensorHelper = TensorHelper(settings.device, EOS_token)):
         self.input_size = input_size
         self.output_size = output_size
         self.hidden_size = hidden_size
-        self.teacher_forcing_ratio=teacher_forcing_ratio
+        self.teacher_forcing_ratio = teacher_forcing_ratio
         self.max_length = max_lenght
         self.dropout_p = dropout_p
         self.learning_rate = learning_rate
@@ -82,9 +82,9 @@ class Model:
         self.encoder, self.decoder = self.build(input_size, output_size, dropout_p)
         self.encoder_optimizer, self.decoder_optimizer = self._optimizers(learning_rate)
 
-    def build(self, input_size: int, output_size: int, dropout_p: float = 0.1):
+    def build(self, input_size: int, output_size: int, dropout_p):
         encoder = EncoderRNN(input_size, self.hidden_size).to(settings.device)
-        decoder = DecoderRNN(self.hidden_size, output_size, dropout_p=dropout_p).to(settings.device)
+        decoder = DecoderRNN(self.hidden_size, output_size, dropout_p).to(settings.device)
 
         return encoder, decoder
 

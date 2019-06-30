@@ -71,6 +71,29 @@ class Dataset:
         return [self.tensor_helper.tensors_from_pair(random.choice(self.pairs), self.vocabulary, self.vocabulary)
                 for _ in range(sample_size)]
 
+    @staticmethod
+    def build(reader: PreProcessing):
+        def _create_dialog_pairs(lines) -> Generator:
+            iterator = iter(lines)
+
+            current_item = next(iterator)
+
+            for item in iterator:
+                yield (current_item, item)
+                current_item = item
+
+        pairs = list(_create_dialog_pairs(reader))
+        vocabulary = Vocabulary()
+
+        print("Counting words...")
+        for pair in pairs:
+            vocabulary.add_sentence_tuple(pair)
+
+        print("Counted words:")
+        print(vocabulary.n_words)
+
+        return Dataset(vocabulary, pairs, reader.idx)
+
     def __str__(self):
         return json.dumps({
             'idx': self.idx,
@@ -79,42 +102,44 @@ class Dataset:
         })
 
 
+class DatasetStorage:
+
+    def __init__(self, dataset_dir=settings.TRAINING_DATA_DIR):
+        self.dataset_dir = dataset_dir
+
+    def _get_dataset_dir(self, dataset_id: str):
+        return os.path.join(self.dataset_dir, dataset_id)
+
+    def exist(self, dataset_id: str):
+        return os.path.exists(self._get_dataset_dir(dataset_id))
+
+    def create_dataset_dir(self, dataset_id: str):
+        dataset_dir = self._get_dataset_dir(dataset_id)
+
+        if not self.exist(dataset_id):
+            os.makedirs(dataset_dir)
+
+        return dataset_dir
+
+    def save(self, dataset: Dataset):
+        dataset_dir = self.create_dataset_dir(dataset.idx)
+        torch.save(dataset.vocabulary, os.path.join(dataset_dir, '{!s}.torch'.format('vocab')))
+        torch.save(dataset.pairs, os.path.join(dataset_dir, '{!s}.torch'.format('pairs')))
+
+    def load(self, dataset_id: str) -> Dataset:
+        directory = self._get_dataset_dir(dataset_id)
+        vocab = torch.load(os.path.join(directory, '{!s}.torch'.format('vocab')))
+        pairs = torch.load(os.path.join(directory, '{!s}.torch'.format('pairs')))
+
+        return Dataset(vocab, pairs, dataset_id)
+
+
 def process(reader: PreProcessing):
 
-    def _create_dialog_pairs(lines) -> Generator:
-        iterator = iter(lines)
+    dataset = Dataset.build(reader)
 
-        current_item = next(iterator)
-
-        for item in iterator:
-            yield (current_item, item)
-            current_item = item
-
-    pairs = list(_create_dialog_pairs(reader))
-    vocabulary = Vocabulary()
-
-    print("Counting words...")
-    for pair in pairs:
-        vocabulary.add_sentence_tuple(pair)
-
-    print("Counted words:")
-    print(vocabulary.n_words)
-
-    return Dataset(vocabulary, pairs, reader.idx)
+    return dataset
 
 
-def save(dataset: Dataset):
-    directory = os.path.join(settings.TRAINING_DATA_DIR, dataset.idx)
-    if not os.path.exists(directory):
-        os.makedirs(directory)
-    torch.save(dataset.vocabulary, os.path.join(directory, '{!s}.torch'.format('vocab')))
-    torch.save(dataset.pairs, os.path.join(directory, '{!s}.torch'.format('pairs')))
 
-
-def load(dataset_id: str):
-    directory = os.path.join(settings.TRAINING_DATA_DIR, dataset_id)
-    vocab = torch.load(os.path.join(directory, '{!s}.torch'.format('vocab')))
-    pairs = torch.load(os.path.join(directory, '{!s}.torch'.format('pairs')))
-
-    return Dataset(vocab, pairs, dataset_id)
 
