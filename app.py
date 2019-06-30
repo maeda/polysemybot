@@ -1,7 +1,7 @@
 import argparse
 
 from model import Model
-from dataset import process, load, DatasetStorage
+from dataset import process, load
 from pre_processing import PreProcessing
 
 
@@ -30,8 +30,11 @@ if __name__ == '__main__':
         model.train(dataset, n_iter=args.iteration, save_every=args.save)
 
     if args.test:
-        dataset = load(args.corpus.split('/')[-1].split('.')[0])
-        model = Model(dataset.vocab_size(), dataset.vocab_size())
+
+        dataset = load(args.test)
+
+        model = Model.load(args.test)
+
         while True:
             decoded_words = model.evaluate(dataset.vocabulary, str(input("> ")))
             print(' '.join(decoded_words))

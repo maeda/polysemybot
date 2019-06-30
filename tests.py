@@ -54,6 +54,19 @@ class ModelTest(unittest.TestCase):
         model = Model(dataset.vocab_size(), dataset.vocab_size())
         model.train(dataset=dataset)
 
+    def test_load_saved_model(self):
+        dataset = self._save_model()
+
+        model = Model.load(dataset.idx)
+        model.summary()
+
+    def _save_model(self):
+        dataset = ds.process(PreProcessing(sentences))
+
+        model = Model(dataset.vocab_size(), dataset.vocab_size())
+        model.train(dataset=dataset)
+        return dataset
+
 
 class DatasetTest(unittest.TestCase):
 

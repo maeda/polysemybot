@@ -105,6 +105,15 @@ class Model:
         print(self.encoder)
         print(self.decoder)
 
+    @classmethod
+    def load(cls, dataset_id):
+        with open(os.path.join(settings.BASE_DIR, dataset_id, settings.SAVE_DATA_DIR, '.metadata'), 'r') as f:
+            model_name = f.read()
+
+        directory = os.path.join(settings.BASE_DIR, dataset_id, settings.SAVE_DATA_DIR, model_name)
+        model = torch.load(directory)
+        return model['model']
+
     def train(self, dataset: Dataset, n_iter=50, print_every=10, save_every=10, plot_every=10):
 
         start = time.time()
@@ -137,11 +146,11 @@ class Model:
                 plot_loss_total = 0
 
             if iteration % save_every == 0:
+                model_dir = '{}-{}_{}'.format(str(self.encoder.n_layers), str(self.decoder.n_layers), str(iteration))
+                model_name = '{}.torch'.format('backup_bidir_model')
+
                 directory = os.path.join(settings.BASE_DIR, dataset.idx, settings.SAVE_DATA_DIR,
-                                         '{}-{}_{}'.format(
-                                             str(self.encoder.n_layers),
-                                             str(self.decoder.n_layers),
-                                             str(iteration)))
+                                         model_dir)
                 if not os.path.exists(directory):
                     os.makedirs(directory)
 
@@ -151,8 +160,12 @@ class Model:
                     'dec': self.decoder.state_dict(),
                     'enc_opt': self.encoder_optimizer.state_dict(),
                     'dec_opt': self.decoder_optimizer.state_dict(),
+                    'model': self,
                     'loss': loss
-                }, os.path.join(directory, '{}_{}.torch'.format(iteration, 'backup_bidir_model')))
+                }, os.path.join(directory, model_name))
+
+                with open(os.path.join(settings.BASE_DIR, dataset.idx, settings.SAVE_DATA_DIR, '.metadata'), 'w') as f:
+                    f.write(os.path.join(model_dir, model_name))
 
     def _train(self, input_tensor, target_tensor, encoder, decoder, encoder_optimizer, decoder_optimizer,
                criterion: nn.NLLLoss):
@@ -160,8 +173,8 @@ class Model:
 
         self._optimizers_zero_grad()
 
-        input_length = input_tensor.size(0)
-        target_length = target_tensor.size(0)
+        input_length = input_tensor.to(settings.device).size(0)
+        target_length = target_tensor.to(settings.device).size(0)
 
         loss = 0
 
