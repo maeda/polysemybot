@@ -80,7 +80,7 @@ class DatasetTest(unittest.TestCase):
 
     def test_should_generate_training_pairs(self):
         dataset = ds.process(PreProcessing(sentences))
-        self.assertEqual(len(dataset.training_pairs(2)), 2)
+        self.assertEqual(len(dataset.training_pairs(2, 2)), 4)
 
     def test_should_create_dataset_dir(self):
         storage = ds.DatasetStorage()

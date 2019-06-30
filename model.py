@@ -4,6 +4,8 @@ import os
 import random
 import time
 
+from tqdm import tqdm
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -68,6 +70,7 @@ class Model:
                  max_lenght: int = 20,
                  dropout_p: float = 0.00,
                  learning_rate: float = 0.01,
+                 n_layers: int = 1,
                  tensor_helper: TensorHelper = TensorHelper(settings.device, EOS_token)):
         self.input_size = input_size
         self.output_size = output_size
@@ -79,12 +82,12 @@ class Model:
 
         self.tensor_helper = tensor_helper
         self.plot_losses = []
-        self.encoder, self.decoder = self.build(input_size, output_size, dropout_p)
+        self.encoder, self.decoder = self.build(input_size, output_size, dropout_p, n_layers)
         self.encoder_optimizer, self.decoder_optimizer = self._optimizers(learning_rate)
 
-    def build(self, input_size: int, output_size: int, dropout_p):
-        encoder = EncoderRNN(input_size, self.hidden_size).to(settings.device)
-        decoder = DecoderRNN(self.hidden_size, output_size, dropout_p).to(settings.device)
+    def build(self, input_size: int, output_size: int, dropout_p: float, n_layers: int):
+        encoder = EncoderRNN(input_size, self.hidden_size, n_layers).to(settings.device)
+        decoder = DecoderRNN(self.hidden_size, output_size, dropout_p, n_layers).to(settings.device)
 
         return encoder, decoder
 
@@ -124,7 +127,7 @@ class Model:
         training_pairs = dataset.training_pairs(n_iter)
         criterion = nn.NLLLoss()
 
-        for iteration in range(1, n_iter + 1):
+        for iteration in tqdm(range(1, n_iter + 1)):
             training_pair = training_pairs[iteration - 1]
             input_tensor = training_pair[0]
             target_tensor = training_pair[1]
