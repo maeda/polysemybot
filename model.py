@@ -92,8 +92,8 @@ class Model:
         return encoder, decoder
 
     def _optimizers(self, learning_rate):
-        encoder_optimizer = optim.SGD(self.encoder.parameters(), lr=learning_rate)
-        decoder_optimizer = optim.SGD(self.decoder.parameters(), lr=learning_rate)
+        encoder_optimizer = optim.Adam(self.encoder.parameters(), lr=learning_rate)
+        decoder_optimizer = optim.Adam(self.decoder.parameters(), lr=learning_rate)
 
         encoder_optimizer.zero_grad()
         decoder_optimizer.zero_grad()
