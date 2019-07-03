@@ -50,7 +50,7 @@ class WordEmbedding:
         return WordEmbedding(model)
 
     @staticmethod
-    def train(pairs, target_folder=None):
+    def train(pairs, embedding_id, target_folder=None, embedding=None):
         print("Counting words...")
         x = []
         y = []
@@ -60,15 +60,15 @@ class WordEmbedding:
             x.append([SOS] + tokenize.word_tokenize(str(pair[0]).lower(), language='portuguese') + [UNK] + [EOS])
             y.append([SOS] + tokenize.word_tokenize(str(pair[1]).lower(), language='portuguese') + [UNK] + [EOS])
 
-        word2vec = Word2Vec(min_count=1, size=300, alpha=0.001, workers=4)
+        word2vec = embedding if embedding else Word2Vec(min_count=1, size=300, alpha=0.001, workers=4)
 
-        word2vec.build_vocab(x + y, progress_per=10000)
+        word2vec.build_vocab(x + y, progress_per=10000, update=True)
 
-        word2vec.train(x + y, total_examples=word2vec.corpus_count, epochs=1000, report_delay=1)
+        word2vec.train(x + y, total_examples=word2vec.corpus_count, epochs=1, report_delay=1)
 
         word_embedding = WordEmbedding(word2vec)
 
-        return word_embedding.save(target_folder) if target_folder else word_embedding
+        return word_embedding.save(target_folder, embedding_id) if target_folder else word_embedding
 
     def save(self, target_folder, filename):
         if not os.path.exists(target_folder):
