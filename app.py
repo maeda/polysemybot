@@ -1,7 +1,7 @@
 import argparse
 
 from model import Model
-from dataset import process, load
+from dataset import process, load, WordEmbedding
 from pre_processing import PreProcessing
 
 
@@ -26,13 +26,15 @@ if __name__ == '__main__':
     args = parse()
 
     if args.train:
-        file_train = args.train.split('/')[-1].split('.')[0]
+        dataset_id = args.train.split('/')[-1].split('.')[0]
 
-        dataset = process(PreProcessing(open(args.train, 'r'), file_train))
+        pre_processing = PreProcessing(open(args.train, 'r'), dataset_id)
+        dataset = process(pre_processing)
+
+        word_embeddings = WordEmbedding.load_from_file('./embedding/starwars/fasttext_cbow_300d.bin')
 
         model = Model(
-            dataset.vocab_size(),
-            dataset.vocab_size(),
+            word_embeddings,
             hidden_size=args.hidden,
             dropout_p=args.dropout,
             learning_rate=args.learning_rate,
@@ -48,6 +50,6 @@ if __name__ == '__main__':
         model = Model.load(args.test)
 
         while True:
-            decoded_words = model.evaluate(dataset.vocabulary, str(input("> ")))
+            decoded_words = model.evaluate(str(input("> ")), dataset)
             print(' '.join(decoded_words))
 

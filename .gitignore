@@ -108,3 +108,4 @@ data/*.gz
 embedding/
 
 .DS_Store
+*.tar.gz

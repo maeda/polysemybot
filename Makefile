@@ -1,4 +1,5 @@
 FILE?=starwars.cpu.latest.tar.gz
+DATASET?=./data/starwars.txt
 .ONESHELL:
 
 default: setup deploy-model
@@ -22,3 +23,6 @@ console: venv
 	. venv/bin/activate ; \
 	python app.py -te starwars
 
+train: venv
+	. venv/bin/activate ; \
+	python app.py -tr ${DATASET} -it 10000 -hi 300 -s 1000 -lr 0.01 -la 1 -d 0.0

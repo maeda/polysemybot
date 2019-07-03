@@ -11,18 +11,18 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch import optim
 
-from dataset import EOS_token, SOS_token, Dataset, control_words
+from dataset import Dataset, control_words, WordEmbedding, SOS, EOS
 import settings
-from utils import time_since, TensorHelper
+from utils import time_since
 
 
 class EncoderRNN(nn.Module):
-    def __init__(self, input_size, hidden_size, n_layers=1):
+    def __init__(self, word_embedding: WordEmbedding, hidden_size, n_layers=1):
         super(EncoderRNN, self).__init__()
         self.hidden_size = hidden_size
         self.n_layers = n_layers
 
-        self.embedding = nn.Embedding(input_size, hidden_size)
+        self.embedding = word_embedding.embedding()
         self.gru = nn.GRU(hidden_size, hidden_size, n_layers)
 
     def forward(self, input, hidden):
@@ -36,16 +36,16 @@ class EncoderRNN(nn.Module):
 
 
 class DecoderRNN(nn.Module):
-    def __init__(self, hidden_size, output_size, dropout_p, n_layers=1):
+    def __init__(self, hidden_size, word_embedding: WordEmbedding, dropout_p, n_layers=1):
         super(DecoderRNN, self).__init__()
         self.hidden_size = hidden_size
         self.n_layers = n_layers
         self.dropout_p = dropout_p
 
-        self.embedding = nn.Embedding(output_size, hidden_size, n_layers)
+        self.embedding = word_embedding.embedding()
         self.dropout = nn.Dropout(self.dropout_p)
         self.gru = nn.GRU(hidden_size, hidden_size)
-        self.out = nn.Linear(hidden_size, output_size)
+        self.out = nn.Linear(hidden_size, word_embedding.n_words())
         self.softmax = nn.LogSoftmax(dim=1)
 
     def forward(self, input, hidden):
@@ -63,33 +63,25 @@ class DecoderRNN(nn.Module):
 class Model:
 
     def __init__(self,
-                 input_size: int,
-                 output_size: int,
+                 word_embedding,
                  hidden_size: int = 300,
                  teacher_forcing_ratio: float = 1,
                  max_lenght: int = 20,
                  dropout_p: float = 0.00,
                  learning_rate: float = 0.01,
-                 n_layers: int = 1,
-                 tensor_helper: TensorHelper = TensorHelper(settings.device, EOS_token)):
-        self.input_size = input_size
-        self.output_size = output_size
+                 n_layers: int = 1):
+
+        self.word_embedding: WordEmbedding = word_embedding
         self.hidden_size = hidden_size
         self.teacher_forcing_ratio = teacher_forcing_ratio
         self.max_length = max_lenght
         self.dropout_p = dropout_p
         self.learning_rate = learning_rate
 
-        self.tensor_helper = tensor_helper
         self.plot_losses = []
-        self.encoder, self.decoder = self.build(input_size, output_size, dropout_p, n_layers)
+        self.encoder = EncoderRNN(self.word_embedding, self.hidden_size, n_layers).to(settings.device)
+        self.decoder = DecoderRNN(self.hidden_size, self.word_embedding, dropout_p, n_layers).to(settings.device)
         self.encoder_optimizer, self.decoder_optimizer = self._optimizers(learning_rate)
-
-    def build(self, input_size: int, output_size: int, dropout_p: float, n_layers: int):
-        encoder = EncoderRNN(input_size, self.hidden_size, n_layers).to(settings.device)
-        decoder = DecoderRNN(self.hidden_size, output_size, dropout_p, n_layers).to(settings.device)
-
-        return encoder, decoder
 
     def _optimizers(self, learning_rate):
         encoder_optimizer = optim.Adam(self.encoder.parameters(), lr=learning_rate)
@@ -124,15 +116,18 @@ class Model:
         print_loss_total = 0  # Reset every print_every
         plot_loss_total = 0  # Reset every plot_every
 
-        training_pairs = dataset.training_pairs(n_iter)
+        training_pairs = dataset.training_pairs(n_iter, self.word_embedding)
         criterion = nn.NLLLoss()
+
+        sos_id = self.word_embedding.word2index(SOS)
+        eos_id = self.word_embedding.word2index(EOS)
 
         for iteration in tqdm(range(1, n_iter + 1)):
             training_pair = training_pairs[iteration - 1]
             input_tensor = training_pair[0]
             target_tensor = training_pair[1]
 
-            loss = self._train(input_tensor, target_tensor, self.encoder, self.decoder, self.encoder_optimizer,
+            loss = self._train(sos_id, eos_id, input_tensor, target_tensor, self.encoder, self.decoder, self.encoder_optimizer,
                                self.decoder_optimizer, criterion)
 
             print_loss_total += loss
@@ -170,7 +165,7 @@ class Model:
                 with open(os.path.join(settings.BASE_DIR, dataset.idx, settings.SAVE_DATA_DIR, '.metadata'), 'w') as f:
                     f.write(os.path.join(model_dir, model_name))
 
-    def _train(self, input_tensor, target_tensor, encoder, decoder, encoder_optimizer, decoder_optimizer,
+    def _train(self, sos_id, eos_id, input_tensor, target_tensor, encoder, decoder, encoder_optimizer, decoder_optimizer,
                criterion: nn.NLLLoss):
         encoder_hidden = encoder.init_hidden()
 
@@ -185,7 +180,7 @@ class Model:
             encoder_output, encoder_hidden = encoder(
                 input_tensor[ei], encoder_hidden)
 
-        decoder_input = torch.tensor([[SOS_token]], device=settings.device).to(settings.device)
+        decoder_input = torch.tensor([[sos_id]], device=settings.device).to(settings.device)
 
         decoder_hidden = encoder_hidden
 
@@ -208,7 +203,7 @@ class Model:
                 decoder_input = topi.squeeze().detach()  # detach from history as input
 
                 loss += criterion(decoder_output, target_tensor[di])
-                if decoder_input.item() == EOS_token:
+                if decoder_input.item() == eos_id:
                     break
 
         loss.backward()
@@ -223,24 +218,27 @@ class Model:
             pair = random.choice(dataset.pairs)
             print('>', pair[0])
             print('=', pair[1])
-            output_words = self.evaluate(dataset.vocabulary, pair[0])
+            output_words = self.evaluate(pair[0], dataset)
             output_sentence = ' '.join(output_words)
             print('<', output_sentence)
             print('')
 
-    def evaluate(self, vocabulary, sentence):
+    def evaluate(self, sentence, dataset: Dataset):
         with torch.no_grad():
-            input_tensor = self.tensor_helper.tensor_from_sentence(vocabulary, sentence)
+            input_tensor = dataset.tensor_from_sentence(self.word_embedding, sentence)
             input_length = input_tensor.size()[0]
             encoder_hidden = self.encoder.init_hidden()
 
             encoder_outputs = torch.zeros(self.max_length, self.encoder.hidden_size, device=settings.device)
 
+            sos_id = self.word_embedding.word2index(SOS)
+            eos_id = self.word_embedding.word2index(EOS)
+
             for ei in range(input_length):
                 encoder_output, encoder_hidden = self.encoder(input_tensor[ei], encoder_hidden)
                 encoder_outputs[ei] += encoder_output[0, 0]
 
-            decoder_input = torch.tensor([[SOS_token]], device=settings.device)  # SOS
+            decoder_input = torch.tensor([[sos_id]], device=settings.device)  # SOS
 
             decoder_hidden = encoder_hidden
 
@@ -251,10 +249,10 @@ class Model:
                     decoder_input, decoder_hidden)
                 topv, topi = decoder_output.data.topk(1)
 
-                if topi.item() == EOS_token:
+                if topi.item() == eos_id:
                     break
 
-                decoded_words.append(vocabulary.index2word[topi.item()])
+                decoded_words.append(self.word_embedding.index2word(topi.item()))
 
                 decoder_input = topi.squeeze().detach()
 
