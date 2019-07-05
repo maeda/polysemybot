@@ -28,6 +28,7 @@ cycler==0.10.0
 cymem==2.0.2
 decorator==4.4.0
 defusedxml==0.6.0
+Deprecated==1.2.5
 docker==4.0.1
 docutils==0.14
 ecdsa==0.13.2

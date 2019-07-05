@@ -3,6 +3,16 @@ import uuid
 
 from typing import Generator, Iterable
 
+from nltk import tokenize
+
+SOS = "SOS"
+EOS = "EOS"
+UNK = "UNK"
+
+
+def control_words():
+    return [SOS, EOS, UNK]
+
 
 def _create_dialog_pairs(lines) -> Generator:
     iterator = iter(lines)
@@ -12,6 +22,16 @@ def _create_dialog_pairs(lines) -> Generator:
     for item in iterator:
         yield (current_item, item)
         current_item = item
+
+
+def _question_answer_datasets(pairs):
+    x = []
+    y = []
+    for pair in pairs:
+        x.append([SOS] + tokenize.word_tokenize(str(pair[0]).lower(), language='portuguese') + [UNK] + [EOS])
+        y.append([SOS] + tokenize.word_tokenize(str(pair[1]).lower(), language='portuguese') + [UNK] + [EOS])
+
+    return x, y
 
 
 class PreProcessing:

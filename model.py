@@ -11,8 +11,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch import optim
 
-from dataset import Dataset, control_words, WordEmbedding, SOS, EOS
+from dataset import Dataset
 import settings
+from embeddings import WordEmbedding
+from pre_processing import SOS, EOS, control_words
 from utils import time_since
 
 
@@ -21,8 +23,8 @@ class EncoderRNN(nn.Module):
         super(EncoderRNN, self).__init__()
         self.hidden_size = hidden_size
         self.n_layers = n_layers
-
-        self.embedding = word_embedding.embedding()
+        self.word_embedding = word_embedding
+        self.embedding = word_embedding.embedding_layer
         self.gru = nn.GRU(hidden_size, hidden_size, n_layers)
 
     def forward(self, input, hidden):
@@ -41,8 +43,8 @@ class DecoderRNN(nn.Module):
         self.hidden_size = hidden_size
         self.n_layers = n_layers
         self.dropout_p = dropout_p
-
-        self.embedding = word_embedding.embedding()
+        self.word_embedding = word_embedding
+        self.embedding = word_embedding.embedding_layer
         self.dropout = nn.Dropout(self.dropout_p)
         self.gru = nn.GRU(hidden_size, hidden_size)
         self.out = nn.Linear(hidden_size, word_embedding.n_words())
@@ -63,24 +65,20 @@ class DecoderRNN(nn.Module):
 class Model:
 
     def __init__(self,
-                 word_embedding,
-                 hidden_size: int = 300,
+                 encoder: EncoderRNN,
+                 decoder: DecoderRNN,
                  teacher_forcing_ratio: float = 1,
                  max_lenght: int = 20,
-                 dropout_p: float = 0.00,
-                 learning_rate: float = 0.01,
-                 n_layers: int = 1):
+                 learning_rate: float = 0.01
+                 ):
 
-        self.word_embedding: WordEmbedding = word_embedding
-        self.hidden_size = hidden_size
         self.teacher_forcing_ratio = teacher_forcing_ratio
         self.max_length = max_lenght
-        self.dropout_p = dropout_p
         self.learning_rate = learning_rate
 
         self.plot_losses = []
-        self.encoder = EncoderRNN(self.word_embedding, self.hidden_size, n_layers).to(settings.device)
-        self.decoder = DecoderRNN(self.hidden_size, self.word_embedding, dropout_p, n_layers).to(settings.device)
+        self.encoder: EncoderRNN = encoder
+        self.decoder: DecoderRNN = decoder
         self.encoder_optimizer, self.decoder_optimizer = self._optimizers(learning_rate)
 
     def _optimizers(self, learning_rate):
@@ -116,11 +114,11 @@ class Model:
         print_loss_total = 0  # Reset every print_every
         plot_loss_total = 0  # Reset every plot_every
 
-        training_pairs = dataset.training_pairs(n_iter, self.word_embedding)
+        training_pairs = dataset.training_pairs(n_iter, self.encoder.word_embedding)
         criterion = nn.NLLLoss()
 
-        sos_id = self.word_embedding.word2index(SOS)
-        eos_id = self.word_embedding.word2index(EOS)
+        sos_id = self.encoder.word_embedding.word2index(SOS)
+        eos_id = self.decoder.word_embedding.word2index(EOS)
 
         for iteration in tqdm(range(1, n_iter + 1)):
             training_pair = training_pairs[iteration - 1]
@@ -225,14 +223,14 @@ class Model:
 
     def evaluate(self, sentence, dataset: Dataset):
         with torch.no_grad():
-            input_tensor = dataset.tensor_from_sentence(self.word_embedding, sentence)
+            input_tensor = dataset.tensor_from_sentence(self.encoder.word_embedding, sentence)
             input_length = input_tensor.size()[0]
             encoder_hidden = self.encoder.init_hidden()
 
             encoder_outputs = torch.zeros(self.max_length, self.encoder.hidden_size, device=settings.device)
 
-            sos_id = self.word_embedding.word2index(SOS)
-            eos_id = self.word_embedding.word2index(EOS)
+            sos_id = self.encoder.word_embedding.word2index(SOS)
+            eos_id = self.encoder.word_embedding.word2index(EOS)
 
             for ei in range(input_length):
                 encoder_output, encoder_hidden = self.encoder(input_tensor[ei], encoder_hidden)
@@ -252,7 +250,12 @@ class Model:
                 if topi.item() == eos_id:
                     break
 
-                decoded_words.append(self.word_embedding.index2word(topi.item()))
+                decoded_word = self.decoder.word_embedding.index2word(topi.item())
+
+                if len(decoded_words) > 1 and decoded_word == decoded_words[-1]:
+                    break
+
+                decoded_words.append(decoded_word)
 
                 decoder_input = topi.squeeze().detach()
 

@@ -4,10 +4,12 @@ import tempfile
 import uuid
 
 import settings
+import app
+from embeddings import WordEmbeddingBasic, WordEmbeddingPreTrained
 
 os.environ['BASE_DIR'] = tempfile.gettempdir()
 
-from model import Model
+from model import Model, EncoderRNN, DecoderRNN
 import dataset as ds
 from pre_processing import PreProcessing
 
@@ -46,8 +48,11 @@ class ModelTest(unittest.TestCase):
     def setUpClass(cls):
         cls.pre_processing = PreProcessing(sentences)
         cls.dataset = ds.process(cls.pre_processing)
-        cls.word_embedding = ds.WordEmbedding.train(cls.dataset.pairs)
-        cls.model = Model(cls.word_embedding)
+        cls.word_embedding = WordEmbeddingBasic(pairs=cls.dataset.pairs)
+
+        encoder = EncoderRNN(cls.word_embedding, 300, 1).to(settings.device)
+        decoder = DecoderRNN(300, cls.word_embedding, 0.0, 1).to(settings.device)
+        cls.model = Model(encoder, decoder)
         cls.model.train(cls.dataset)
 
     def test_train_model(self):
@@ -80,8 +85,8 @@ class DatasetTest(unittest.TestCase):
     def test_should_generate_training_pairs(self):
         pre_processing = PreProcessing(sentences)
         dataset = ds.process(pre_processing)
-        word_embedding = ds.WordEmbedding.train(dataset.pairs)
-
+        word_embedding = WordEmbeddingBasic(freeze=False, pairs=dataset.pairs)
+        word_embedding.train()
         self.assertEqual(len(dataset.training_pairs(2, word_embedding)), 2)
 
     def test_should_create_dataset_dir(self):
@@ -98,15 +103,31 @@ class WordEmbeddingTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.pre_processing = PreProcessing(sentences)
-        cls. dataset = ds.process(cls.pre_processing)
+        cls.dataset = ds.process(PreProcessing(sentences))
 
     def test_train(self):
-        word_embedding = ds.WordEmbedding.train(self.__class__.dataset.pairs)
+        word_embedding = WordEmbeddingBasic(pairs=self.__class__.dataset.pairs)
         self.assertEqual(word_embedding.n_words(), 25)
 
     def test_load_from_file(self):
         embeddings_path = os.path.join(settings.BASE_DIR, 'embeddings', uuid.uuid4().hex)
-        ds.WordEmbedding.train(self.__class__.dataset.pairs).save(embeddings_path, str(self.__class__.dataset.idx) + ".bin")
-        model = ds.WordEmbedding.load_from_file(os.path.join(embeddings_path, str(self.__class__.dataset.idx) + ".bin"))
+        filename = str(self.__class__.dataset.idx) + ".bin"
+
+        word_embedding = WordEmbeddingBasic(pairs=self.__class__.dataset.pairs)
+        word_embedding.train()
+        word_embedding.save(embeddings_path, filename)
+
+        model = WordEmbeddingPreTrained(directory_from=os.path.join(embeddings_path, filename))
         print(model._embedding.wv.similarity('batendo', 'porta'))
+
+
+class MainTest(unittest.TestCase):
+    def test_main(self):
+        app.run(hidden=300,
+                layer=1,
+                dropout=0.0,
+                learning_rate=0.01,
+                iteration=5,
+                save=10,
+                train='./data/starwars.txt',
+                test=False)
