@@ -13,10 +13,16 @@ venv/bin/activate: requirements.txt
 
 setup: venv
 
-delete-model:
+clean:
 	rm -Rf ./target
 
-deploy-model:
+package:
+	tar -zcvf $(FILE) ./target/starwars
+
+deploy:
+ifeq "$(wildcard ./target)" ""
+	mkdir ./target
+endif
 	tar -zxvf $(FILE)
 
 console: venv
