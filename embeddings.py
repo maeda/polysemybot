@@ -1,6 +1,5 @@
-import errno
 import os
-from abc import ABC, abstractmethod
+import pickle
 
 import torch
 from gensim.models import Word2Vec
@@ -10,11 +9,11 @@ import settings
 from pre_processing import _create_dialog_pairs, UNK, _question_answer_datasets
 
 
-class WordEmbedding(ABC):
+class WordEmbedding:
 
     def __init__(self, **kwargs):
         self.freeze = False if 'freeze' not in kwargs.keys() else bool(kwargs.get('freeze'))
-        self._embedding = self.load(**kwargs)
+        self._embedding, self.pairs = self.load(**kwargs)
         self.embedding_layer = self._build_layer()
 
     def n_words(self):
@@ -32,65 +31,39 @@ class WordEmbedding(ABC):
         return nn.Embedding.from_pretrained(weights, freeze=self.freeze)
 
     def load(self, **kwargs):
-        directory_from = kwargs['directory_from']
-        if not os.path.isfile(directory_from):
-            raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), directory_from)
 
-        return Word2Vec.load(directory_from)
+        if 'source' not in kwargs.keys():
+            raise KeyError('Embedding should have directory_from or pairs attributed defined.')
+
+        if isinstance(kwargs.get('source'), list):
+            x, y = _question_answer_datasets(kwargs.get('source'))
+
+            word2vec = Word2Vec(min_count=1, size=300, alpha=0.001, workers=settings.cores)
+            word2vec.build_vocab(x + y)
+
+            return word2vec, kwargs.get('source')
+
+        if os.path.isfile(kwargs.get('source')):
+            pairs = pickle.load(open(kwargs.get('source') + '.pairs.pickle', 'rb'))
+            embeddings = Word2Vec.load(kwargs.get('source'))
+            return embeddings, pairs
+
+        raise ValueError('source attribute should be a iterable or filename')
 
     def save(self, target_folder, filename):
         if not os.path.exists(target_folder):
             os.makedirs(target_folder)
         self._embedding.save(os.path.join(target_folder, filename))
+        pickle.dump(self.pairs, open(os.path.join(target_folder, filename + ".pairs.pickle"), 'wb'))
         return self
 
-    @abstractmethod
     def train(self, *args, **kwargs):
-        pass
-
-
-class WordEmbeddingBasic(WordEmbedding):
-    def __init__(self, **kwargs):
-        if 'pairs' not in kwargs.keys():
-            raise KeyError("pairs is required")
-
-        self.pairs = kwargs['pairs']
-        super().__init__(**kwargs)
-
-    def load(self, **kwargs):
-        print("Counting words...")
-        x, y = _question_answer_datasets(self.pairs)
-
-        word2vec = Word2Vec(min_count=1, size=300, alpha=0.001, workers=settings.cores)
-        word2vec.build_vocab(x + y)
-
-        return word2vec
-
-    def train(self, epochs=1000):
         x, y = _create_dialog_pairs(self.pairs)
 
+        epochs = 1000 if 'epochs' not in kwargs.keys() else kwargs.get('epochs')
+
         self._embedding.build_vocab(x + y, update=True)
 
         self._embedding.train(x + y, total_examples=self._embedding.corpus_count, epochs=epochs)
 
         return self
-
-
-class WordEmbeddingPreTrained(WordEmbedding):
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-
-    def train(self,
-              pairs,
-              min_count=1,
-              size=300,
-              alpha=0.001,
-              workers=settings.cores,
-              epochs=1000):
-
-        x, y = _create_dialog_pairs(pairs)
-
-        self._embedding.build_vocab(x + y, update=True)
-
-        self._embedding.train(x + y, total_examples=self._embedding.corpus_count, epochs=epochs)

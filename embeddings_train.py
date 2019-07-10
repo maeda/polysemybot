@@ -1,7 +1,7 @@
 from deprecated import deprecated
 
 from dataset import process
-from embeddings import WordEmbeddingPreTrained, WordEmbeddingBasic
+from embeddings import WordEmbedding
 from pre_processing import PreProcessing
 
 
@@ -9,7 +9,7 @@ from pre_processing import PreProcessing
 def retrain():
     ds = process(PreProcessing('./data/starwars.txt'))
 
-    word_embedding = WordEmbeddingPreTrained(directory_from='./embedding/FT/fasttext_cbow_300d.bin')
+    word_embedding = WordEmbedding(source='./embedding/FT/fasttext_cbow_300d.bin')
 
     word_embedding.train(ds.pairs)
     word_embedding.save('./embedding/starwars', 'starwars.bin')
@@ -19,7 +19,7 @@ def retrain():
 def train():
     ds = process(PreProcessing(open('./data/starwars.txt', 'r')))
 
-    word_embedding = WordEmbeddingBasic(pairs=ds.pairs)
+    word_embedding = WordEmbedding(source=ds.pairs)
 
     word_embedding.train(ds.pairs)
 

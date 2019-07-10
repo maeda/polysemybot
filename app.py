@@ -1,7 +1,7 @@
 import argparse
 
 import settings
-from embeddings import WordEmbeddingBasic
+from embeddings import WordEmbedding
 from model import Model, EncoderRNN, DecoderRNN
 from dataset import process, load
 from pre_processing import PreProcessing
@@ -31,8 +31,8 @@ def run(hidden, layer, dropout, learning_rate, iteration, save, train=None, test
         pre_processing = PreProcessing(open(train, 'r'), dataset_id)
         dataset = process(pre_processing)
 
-        encoder_embeddings = WordEmbeddingBasic(pairs=dataset.pairs)
-        decoder_embeddings = WordEmbeddingBasic(pairs=dataset.pairs)
+        encoder_embeddings = WordEmbedding(source=dataset.pairs)
+        decoder_embeddings = WordEmbedding(source=dataset.pairs)
 
         encoder = EncoderRNN(encoder_embeddings, hidden, layer).to(settings.device)
         decoder = DecoderRNN(hidden, decoder_embeddings, dropout, layer).to(settings.device)

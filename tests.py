@@ -5,7 +5,7 @@ import uuid
 
 import settings
 import app
-from embeddings import WordEmbeddingBasic, WordEmbeddingPreTrained
+from embeddings import WordEmbedding
 
 os.environ['BASE_DIR'] = tempfile.gettempdir()
 
@@ -48,7 +48,7 @@ class ModelTest(unittest.TestCase):
     def setUpClass(cls):
         cls.pre_processing = PreProcessing(sentences)
         cls.dataset = ds.process(cls.pre_processing)
-        cls.word_embedding = WordEmbeddingBasic(pairs=cls.dataset.pairs)
+        cls.word_embedding = WordEmbedding(source=cls.dataset.pairs)
 
         encoder = EncoderRNN(cls.word_embedding, 300, 1).to(settings.device)
         decoder = DecoderRNN(300, cls.word_embedding, 0.0, 1).to(settings.device)
@@ -85,7 +85,7 @@ class DatasetTest(unittest.TestCase):
     def test_should_generate_training_pairs(self):
         pre_processing = PreProcessing(sentences)
         dataset = ds.process(pre_processing)
-        word_embedding = WordEmbeddingBasic(freeze=False, pairs=dataset.pairs)
+        word_embedding = WordEmbedding(freeze=False, source=dataset.pairs)
         word_embedding.train()
         self.assertEqual(len(dataset.training_pairs(2, word_embedding)), 2)
 
@@ -106,18 +106,18 @@ class WordEmbeddingTest(unittest.TestCase):
         cls.dataset = ds.process(PreProcessing(sentences))
 
     def test_train(self):
-        word_embedding = WordEmbeddingBasic(pairs=self.__class__.dataset.pairs)
+        word_embedding = WordEmbedding(source=self.__class__.dataset.pairs)
         self.assertEqual(word_embedding.n_words(), 25)
 
     def test_load_from_file(self):
         embeddings_path = os.path.join(settings.BASE_DIR, 'embeddings', uuid.uuid4().hex)
         filename = str(self.__class__.dataset.idx) + ".bin"
 
-        word_embedding = WordEmbeddingBasic(pairs=self.__class__.dataset.pairs)
+        word_embedding = WordEmbedding(source=self.__class__.dataset.pairs)
         word_embedding.train()
         word_embedding.save(embeddings_path, filename)
 
-        model = WordEmbeddingPreTrained(directory_from=os.path.join(embeddings_path, filename))
+        model = WordEmbedding(source=os.path.join(embeddings_path, filename))
         print(model._embedding.wv.similarity('batendo', 'porta'))
 
 
