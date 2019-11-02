@@ -31,7 +31,7 @@ defusedxml==0.6.0
 Deprecated==1.2.5
 docker==4.0.1
 docutils==0.14
-ecdsa==0.13.2
+ecdsa==0.13.3
 editdistance==0.5.3
 entrypoints==0.3
 flaky==3.5.3
